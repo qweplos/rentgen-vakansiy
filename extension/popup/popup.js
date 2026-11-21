@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const S = globalThis.RVScore;
-  const DEFAULTS = { hideZombie: true, maxResponses: false, onlySalary: false, noTest: false, onlineOnly: false, sort: 'score', weights: {}, responsesLimit: 100 };
+  const DEFAULTS = { hideZombie: true, maxResponses: false, onlySalary: false, noTest: false, onlineOnly: false, sort: 'score', weights: {}, responsesLimit: 100, siteTheme: 'site' };
   const FILTERS = [
     ['hideZombie', 'Зомби-вакансии (старые и переподнятые)'],
     ['maxResponses', 'Больше 100 откликов'],
@@ -69,6 +69,15 @@
       }
       filters.append(l);
     }
+
+    const theme = document.getElementById('siteTheme');
+    theme.value = ['night', 'system'].includes(settings.siteTheme) ? settings.siteTheme : 'site';
+    theme.addEventListener('change', () => {
+      save({ siteTheme: theme.value });
+      // Окно настроек сразу переходит на выбранную тему.
+      const dark = theme.value === 'night' || (theme.value === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+      if (theme.value !== 'site') document.documentElement.classList.toggle('dark', dark);
+    });
 
     const sort = document.getElementById('sort');
     sort.value = settings.sort;

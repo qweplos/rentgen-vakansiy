@@ -15,7 +15,7 @@
   const CARD = '[data-qa="vacancy-serp__vacancy"]';
   const TITLE = '[data-qa="serp-item__title"]';
   const OURS = '.rv-toolbar,.rv-badge,.rv-strip,.rv-collapsed,.rv-pop,.rv-vpanel';
-  const DEFAULTS = { hideZombie: true, maxResponses: false, onlySalary: false, noTest: false, onlineOnly: false, sort: 'score', weights: {}, responsesLimit: 100 };
+  const DEFAULTS = { hideZombie: true, maxResponses: false, onlySalary: false, noTest: false, onlineOnly: false, sort: 'score', weights: {}, responsesLimit: 100, siteTheme: 'site' };
   const FILTERS = [
     ['hideZombie', 'Скрыть зомби-вакансии'],
     ['maxResponses', 'До 100 откликов'],
@@ -255,6 +255,9 @@
         ...FILTERS.map(([k, label]) => (k === 'maxResponses' ? buildLimitFilter() :
           h('button', { type: 'button', class: 'rv-filter', 'data-key': k, 'aria-pressed': 'false', text: label, onclick: () => update({ [k]: !settings[k] }) }))),
         h('button', { type: 'button', class: 'rv-filter rv-wbtn', 'aria-expanded': 'false', text: 'Важность факторов', onclick: toggleWeights }),
+        // Тёмная тема самого hh: у сайта она есть, но переключателя hh не дал. Включает theme.js.
+        h('button', { type: 'button', class: 'rv-filter rv-theme', 'aria-pressed': 'false', title: 'Тёмная тема hh.ru', text: '☾ Тёмная тема',
+          onclick: () => update({ siteTheme: settings.siteTheme === 'night' ? 'site' : 'night' }) }),
       ]),
       buildWeights(),
     ]);
@@ -325,10 +328,15 @@
     setText(tb.querySelector('.rv-summary'), summary);
     const sel = tb.querySelector('.rv-select');
     if (sel.value !== settings.sort) sel.value = settings.sort;
-    tb.querySelectorAll('.rv-filter').forEach((b) => {
+    tb.querySelectorAll('.rv-filter[data-key]').forEach((b) => {
       const on = String(!!settings[b.dataset.key]);
       if (b.getAttribute('aria-pressed') !== on) b.setAttribute('aria-pressed', on);
     });
+    const th = tb.querySelector('.rv-theme');
+    if (th) {
+      const on = String(settings.siteTheme === 'night');
+      if (th.getAttribute('aria-pressed') !== on) th.setAttribute('aria-pressed', on);
+    }
     const lim = tb.querySelector('.rv-limit-input');
     if (lim && document.activeElement !== lim) {
       const v = String(S.responsesLimit(settings));
