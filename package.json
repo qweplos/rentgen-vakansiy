@@ -1,6 +1,6 @@
 {
   "name": "rentgen-vakansiy",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "Браузерное расширение для hh.ru: оценка вакансии по скрытым данным страницы",
   "scripts": {
