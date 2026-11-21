@@ -1,5 +1,5 @@
 /*
- * Рентген вакансий — интерфейс на страницах hh.ru.
+ * ХаХантер — интерфейс на страницах hh.ru.
  * Берёт данные из HH-Lux-InitialState (первая загрузка) и из hook.js (листание, фильтры),
  * считает оценку через RVScore и встраивает бейдж, чипы, панель и расшифровку.
  * Сетевых запросов не делает.
@@ -169,7 +169,7 @@
     panel = h('div', { class: 'rv-vpanel', 'data-rv-key': key }, [
       buildBadge(a),
       buildStrip(a),
-      h('div', { class: 'rv-vnote', text: `Оценка Рентгена по данным выдачи на ${when}: на странице вакансии hh не показывает число откликов. Наведите на оценку — увидите расшифровку.` }),
+      h('div', { class: 'rv-vnote', text: `Оценка ХаХантера по данным выдачи на ${when}: на странице вакансии hh не показывает число откликов. Наведите на оценку — увидите расшифровку.` }),
     ]);
     panel.dataset.rvKey = key;
     title.insertAdjacentElement('afterend', panel);
@@ -187,7 +187,7 @@
 
   function buildStrip(a) {
     return h('div', { class: 'rv-strip' }, [
-      h('span', { class: 'rv-mark', title: 'Рентген вакансий', text: 'Р' }),
+      h('span', { class: 'rv-mark', title: 'ХаХантер', text: 'Х' }),
       ...a.chips.map((c) => h('span', { class: 'rv-chip' }, [h('i', { class: `rv-dot rv-dot-${c.tone}` }), c.text])),
     ]);
   }
@@ -246,8 +246,8 @@
     select.addEventListener('change', () => update({ sort: select.value }));
     return h('div', { class: 'rv-toolbar' }, [
       h('div', { class: 'rv-row' }, [
-        h('span', { class: 'rv-mark rv-mark-lg', text: 'Р' }),
-        h('b', { class: 'rv-title', text: 'Рентген вакансий' }),
+        h('span', { class: 'rv-mark rv-mark-lg', text: 'Х' }),
+        h('b', { class: 'rv-title', text: 'ХаХантер' }),
         h('span', { class: 'rv-summary' }),
         h('label', { class: 'rv-sort' }, ['Сортировка:', select]),
       ]),
