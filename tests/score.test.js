@@ -144,3 +144,85 @@ test('порог «до N откликов»: настраивается, по �
   assert.match(S.hiddenReason(a, { maxResponses: true, responsesLimit: 50 }), /142 отклика — больше 50$/);
   assert.equal(S.hiddenReason(a, { maxResponses: false, responsesLimit: 50 }), null);
 });
+
+// ---------- 0.8.0: избранное, архив, даты ----------
+
+// Вакансия 138896866 «Начинающий CRM-маркетолог», как её отдаёт hh (21.11.2026):
+// в избранном — totalResponsesCount 0, в поиске — 787.
+const CRM_FAV = { vacancyId: 138896866, creationTime: '2026-10-27T21:30:05.237+03:00', publicationTime: { $: '2026-10-27T21:30:05.237+03:00', '@timestamp': 1793125805 }, totalResponsesCount: 0, responsesCount: 0, archived: false };
+const CRM_SEARCH = { ...CRM_FAV, totalResponsesCount: 787, responsesCount: 545 };
+const NOW2 = Date.parse('2026-11-21T20:36:00+03:00');
+
+test('избранное: 0 откликов у hh значит «нет данных», а не «никто не откликнулся»', () => {
+  const favList = [CRM_FAV, { ...CRM_FAV, vacancyId: 2 }, { ...CRM_FAV, vacancyId: 3, archived: true }];
+  assert.equal(S.countsUnreliable(favList, '/applicant/favorites'), true);
+  const [clean] = S.cleanCounts(favList, '/applicant/favorites');
+  assert.equal('totalResponsesCount' in clean, false);
+  assert.equal(CRM_FAV.totalResponsesCount, 0, 'исходный объект не меняется');
+  const a = S.analyze(clean, {}, NOW2);
+  assert.equal(a.flags.responses, null);
+  assert.ok(!a.factors.some((f) => f.key === 'competition'));
+  assert.ok(!a.chips.some((c) => /отклик/.test(c.text)));
+  // даже одна вакансия в избранном
+  assert.equal(S.countsUnreliable([CRM_FAV], '/applicant/favorite_vacancies'), true);
+});
+
+test('поиск: одиночный 0 — настоящий ноль; три нуля подряд — подозрительно', () => {
+  const search = [CRM_SEARCH, { ...CRM_FAV, vacancyId: 9 }];
+  assert.equal(S.countsUnreliable(search, '/search/vacancy'), false);
+  assert.equal(S.cleanCounts(search, '/search/vacancy'), search);
+  const zeros = [1, 2, 3].map((id) => ({ ...CRM_FAV, vacancyId: id }));
+  assert.equal(S.countsUnreliable(zeros, '/search/vacancy'), true);
+  const a = S.analyze(CRM_SEARCH, {}, NOW2);
+  assert.equal(a.flags.responses, 787);
+  assert.match(a.chips[0].text, /^787 откликов/);
+});
+
+test('responsesCount не подменяет totalResponsesCount', () => {
+  const a = S.analyze({ vacancyId: 5, responsesCount: 12 }, {}, NOW2);
+  assert.equal(a.flags.responses, null);
+});
+
+test('архивная вакансия помечается, но не прячется', () => {
+  const a = S.analyze({ ...CRM_SEARCH, archived: true }, {}, NOW2);
+  assert.equal(a.flags.archived, true);
+  assert.equal(a.chips[0].text, 'В архиве — отклик закрыт');
+  assert.equal(a.level, 'low');
+  assert.equal(S.hiddenReason(a, {}), null);
+  const b = S.analyze({ vacancyId: 6, status: { archived: true } }, {}, NOW2);
+  assert.equal(b.flags.archived, true);
+});
+
+test('даты: «27 окт.», другой год с годом, московское время', () => {
+  assert.equal(S.dateText(Date.parse('2026-10-27T21:30:05+03:00'), NOW2), '27 окт.');
+  assert.equal(S.dateText(Date.parse('2026-08-20T10:00:00+03:00'), NOW2), '20 авг.');
+  assert.equal(S.dateText(Date.parse('2025-12-31T23:30:00+03:00'), NOW2), '31 дек. 2025');
+  assert.equal(S.dateText(Date.parse('2026-10-31T22:30:00Z'), NOW2), '1 нояб.'); // 01:30 по Москве
+});
+
+test('не переподнималась: только дата создания', () => {
+  const a = S.analyze(CRM_SEARCH, {}, NOW2);
+  assert.equal(S.datesLine(a), 'создана 27 окт.');
+  assert.equal(a.flags.longGap, false);
+  assert.match(a.factors.find((f) => f.key === 'freshness').detail, /^Создана 27 окт\. \(24 дня назад\), с тех пор не переподнималась$/);
+});
+
+test('опубликована заново через 90 дней — признак продления или возврата из архива', () => {
+  const v = { vacancyId: 7, creationTime: '2026-08-20T10:00:00+03:00', publicationTime: '2026-11-18T10:00:00+03:00', totalResponsesCount: 2160 };
+  const a = S.analyze(v, {}, NOW2);
+  assert.equal(a.flags.longGap, true);
+  assert.equal(a.flags.gapDays, 90);
+  assert.equal(S.datesLine(a), 'создана 20 авг. · снова опубл. 18 нояб.');
+  assert.match(a.factors.find((f) => f.key === 'freshness').detail, /через 90 дней, дольше обычного срока в 30 дней/);
+  assert.match(a.factors.find((f) => f.key === 'competition').detail, /копились с 20 авг\./);
+  assert.ok(a.chips.some((c) => c.text === 'Висит 93 дня, снова опубл. 18 нояб.'));
+});
+
+test('переподнята внутри срока — без предупреждения про архив', () => {
+  const v = { vacancyId: 8, creationTime: '2026-11-01T10:00:00+03:00', publicationTime: '2026-11-15T10:00:00+03:00', totalResponsesCount: 50 };
+  const a = S.analyze(v, {}, NOW2);
+  assert.equal(a.flags.longGap, false);
+  assert.equal(S.datesLine(a), 'создана 1 нояб. · снова опубл. 15 нояб.');
+  assert.match(a.factors.find((f) => f.key === 'freshness').detail, /переподнята 15 нояб\.$/);
+  assert.doesNotMatch(a.factors.find((f) => f.key === 'competition').detail, /копились/);
+});

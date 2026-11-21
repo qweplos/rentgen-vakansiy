@@ -61,11 +61,43 @@
     return v;
   }
 
+  // Только totalResponsesCount. responsesCount у hh — другое число (у свежих вакансий
+  // часто ровно 12–13 при сотнях откликов), как запасной источник он вводит в заблуждение.
   function responses(v) {
-    if (typeof v.totalResponsesCount === 'number') return v.totalResponsesCount;
-    if (typeof v.responsesCount === 'number') return v.responsesCount;
-    return null;
+    return typeof v.totalResponsesCount === 'number' ? v.totalResponsesCount : null;
   }
+
+  // Списки, где hh не заполняет число откликов и отдаёт 0 у всех вакансий
+  // (избранное соискателя). Ноль там значит «нет данных», а не «никто не откликнулся».
+  function countsUnreliable(list, path) {
+    if (/^\/applicant\/favorite/.test(path || '')) return true;
+    return list.length >= 3 && list.every((v) => !v.totalResponsesCount && !v.responsesCount);
+  }
+
+  // Копии вакансий без недостоверных счётчиков.
+  function cleanCounts(list, path) {
+    if (!countsUnreliable(list, path)) return list;
+    return list.map((v) => {
+      const r = { ...v };
+      delete r.totalResponsesCount;
+      delete r.responsesCount;
+      return r;
+    });
+  }
+
+  // Дата коротко: «27 окт.», другой год — «27 окт. 2025».
+  // Своя таблица месяцев: сокращения Intl в разных браузерах разные. Время московское.
+  const MONTHS = ['янв.', 'февр.', 'марта', 'апр.', 'мая', 'июня', 'июля', 'авг.', 'сент.', 'окт.', 'нояб.', 'дек.'];
+  function dateText(t, now = Date.now()) {
+    const d = new Date(t + 3 * 36e5);
+    const y = new Date(now + 3 * 36e5).getUTCFullYear();
+    const s = `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+    return d.getUTCFullYear() === y ? s : `${s} ${d.getUTCFullYear()}`;
+  }
+
+  // Стандартная публикация на hh длится 30 дней. Если вакансию опубликовали заново
+  // позже, её продлевали или возвращали из архива — отклики при этом сохраняются.
+  const TERM_DAYS = 30;
 
   function pageStats(list) {
     const salaries = list.map((v) => monthlyNet(v.compensation)).filter((x) => x != null);
@@ -111,12 +143,25 @@
   function analyze(v, stats = {}, now = Date.now(), weights = null) {
     const factors = [];
     const chips = [];
-    const flags = { zombie: false, test: false, letter: false, online: false, hasSalary: false };
+    const flags = { zombie: false, test: false, letter: false, online: false, hasSalary: false, archived: false, longGap: false };
 
     const created = toTime(v.creationTime);
     const published = toTime(v.publicationTime) ?? created;
     const ageDays = created != null ? Math.max(0, (now - created) / DAY) : null;
     flags.ageDays = ageDays == null ? null : Math.floor(ageDays);
+    const bumped = created != null && published != null && published - created > DAY;
+    const gapDays = bumped ? Math.floor((published - created) / DAY) : 0;
+    flags.createdText = created != null ? dateText(created, now) : null;
+    flags.publishedText = bumped ? dateText(published, now) : null;
+    flags.gapDays = gapDays;
+    flags.longGap = gapDays > TERM_DAYS;
+
+    // 0. Вакансия в архиве: откликнуться нельзя (бывает в избранном).
+    if (v.archived === true || (v.status && v.status.archived === true)) {
+      flags.archived = true;
+      factors.push({ key: 'archived', title: 'В архиве', detail: 'Работодатель снял вакансию, откликнуться нельзя', points: -50 });
+      chips.push({ key: 'archived', text: 'В архиве — отклик закрыт', tone: 'bad' });
+    }
 
     // 1. Конкуренция: сколько уже откликнулось.
     const total = responses(v);
@@ -129,27 +174,27 @@
       let rel = '';
       const med = stats.medianResponses;
       if (med) rel = total > med * 1.25 ? ' — больше медианы выдачи' : total < med * 0.75 ? ' — меньше медианы выдачи' : ' — около медианы выдачи';
-      factors.push({ key: 'competition', title: 'Конкуренция', detail: `${head}, ${per}${rel}`, points: pts });
+      let detail = `${head}, ${per}${rel}`;
+      if (flags.longGap) detail += `. Отклики копились с ${flags.createdText}, часть из них старые: сколько пришло после повторной публикации ${flags.publishedText}, hh не показывает`;
+      factors.push({ key: 'competition', title: 'Конкуренция', detail, points: pts });
       chips.push({ key: 'competition', text: `${head} · ${per}`, tone: total <= 50 ? 'good' : total <= 250 ? 'warn' : 'bad' });
     }
 
     // 2. Свежесть и зомби-вакансии: давно висит и её переподнимают.
     if (ageDays != null) {
-      const bumped = published != null && published - created > DAY;
       const zombie = ageDays > 30 && bumped;
       flags.zombie = zombie;
       let pts = ageDays <= 3 ? 12 : ageDays <= 7 ? 8 : ageDays <= 14 ? 3 : ageDays <= 30 ? 0 : ageDays <= 60 ? -8 : -14;
       if (zombie) pts -= 4;
       const createdText = `Создана ${ageText(ageDays)}`;
-      factors.push({
-        key: 'freshness',
-        title: zombie ? 'Зомби-вакансия' : 'Свежесть',
-        detail: `${createdText}, ${bumped ? 'переподнималась' : 'не переподнималась'}`,
-        points: pts,
-      });
+      let detail = `Создана ${flags.createdText} (${ageText(ageDays)}), `;
+      if (!bumped) detail += 'с тех пор не переподнималась';
+      else if (flags.longGap) detail += `опубликована заново ${flags.publishedText} — через ${gapDays} ${plural(gapDays, 'день', 'дня', 'дней')}, дольше обычного срока в ${TERM_DAYS} дней: её продлевали или возвращали из архива`;
+      else detail += `переподнята ${flags.publishedText}`;
+      factors.push({ key: 'freshness', title: zombie ? 'Зомби-вакансия' : 'Свежесть', detail, points: pts });
       if (zombie) {
         const d = Math.floor(ageDays);
-        chips.push({ key: 'freshness', text: `Висит ${d} ${plural(d, 'день', 'дня', 'дней')}, переподнята`, tone: 'bad' });
+        chips.push({ key: 'freshness', text: `Висит ${d} ${plural(d, 'день', 'дня', 'дней')}, снова опубл. ${flags.publishedText}`, tone: 'bad' });
       } else {
         chips.push({ key: 'freshness', text: createdText, tone: ageDays <= 7 ? 'good' : ageDays <= 30 ? 'warn' : 'bad' });
       }
@@ -223,6 +268,15 @@
     return Number.isFinite(n) && n >= 1 ? Math.min(n, 10000) : LIMIT_DEFAULT;
   }
 
+  // Даты для свёрнутой строки: «создана 27 окт. · снова опубл. 18 нояб.».
+  function datesLine(a) {
+    const f = a.flags;
+    if (!f.createdText) return '';
+    let t = `создана ${f.createdText}`;
+    if (f.publishedText) t += ` · снова опубл. ${f.publishedText}`;
+    return t;
+  }
+
   // Причина скрыть вакансию по включённым фильтрам или null.
   function hiddenReason(a, s) {
     const f = a.flags;
@@ -255,7 +309,7 @@
     return out;
   }
 
-  const api = { analyze, pageStats, hiddenReason, collectVacancies, monthlyNet, median, plural, toTime, fmtInt, levelOf, BASE, WEIGHTS, responsesLimit, LIMIT_DEFAULT };
+  const api = { analyze, pageStats, hiddenReason, datesLine, cleanCounts, countsUnreliable, dateText, TERM_DAYS, collectVacancies, monthlyNet, median, plural, toTime, fmtInt, levelOf, BASE, WEIGHTS, responsesLimit, LIMIT_DEFAULT };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.RVScore = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

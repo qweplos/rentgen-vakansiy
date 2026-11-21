@@ -25,11 +25,13 @@
   ];
   const KEEP = [
     'vacancyId', 'creationTime', 'publicationTime', 'responsesCount', 'totalResponsesCount',
-    'userTestPresent', '@responseLetterRequired', 'compensation', 'labels', 'extraLabels',
+    'userTestPresent', '@responseLetterRequired', 'compensation', 'labels', 'extraLabels', 'archived',
   ];
   const SEEN_TTL = 7 * 864e5; // как долго помним вакансии из выдачи
   const SEEN_MAX = 400;
   const VID = (location.pathname.match(/^\/vacancy\/(\d+)/) || [])[1] || null; // страница одной вакансии
+  // Поиск вакансий: только здесь медианы — это «медианы выдачи». В избранном и других списках их не считаем.
+  const SEARCH = /^\/(search\/vacancy|vacancies\/)/.test(location.pathname);
   const MINUS = '−';
   const W_LABELS = ['не учитывать', 'почти не важно', 'как есть', 'важнее', 'очень важно'];
   const wIndex = (w) => Math.round((typeof w === 'number' ? w : 1) * 2);
@@ -39,7 +41,7 @@
   const analysisOf = new WeakMap(); // бейдж -> результат analyze
   let settings = { ...DEFAULTS };
   let seen = {};              // id -> { t, v, s }: вакансии, которые видели в выдаче
-  const savedNow = new Set();
+  const savedNow = new Map(); // id -> число откликов, уже записанное с этой страницы
   let flushTimer = null;
   let timer = null;
 
@@ -98,9 +100,12 @@
   // ---------- данные ----------
   function ingest(list) {
     let added = 0;
-    for (const v of list) {
-      if (!v || v.vacancyId == null) continue;
-      data.set(String(v.vacancyId), v);
+    for (const v of S.cleanCounts(list.filter((x) => x && x.vacancyId != null), location.pathname)) {
+      const id = String(v.vacancyId);
+      const old = data.get(id);
+      // Ответ без числа откликов не затирает уже известное число.
+      const keep = old && typeof old.totalResponsesCount === 'number' && typeof v.totalResponsesCount !== 'number';
+      data.set(id, keep ? { ...v, totalResponsesCount: old.totalResponsesCount } : v);
       added++;
     }
     if (added) schedule();
@@ -125,14 +130,21 @@
     const r = {};
     for (const k of KEEP) if (k in v) r[k] = v[k];
     if (v.employerManager) r.employerManager = { latestActivity: v.employerManager.latestActivity };
+    if (v.status && v.status.archived === true) r.archived = true;
     return r;
   }
 
+  // Запоминаем только вакансии с известным числом откликов. Отклики со временем только
+  // прибавляются, поэтому меньшее число — признак неполных данных, и старую запись не трогаем.
   function remember(items, stats) {
     let any = false;
     for (const it of items) {
-      if (savedNow.has(it.id) || it.a.flags.responses == null) continue;
-      savedNow.add(it.id);
+      const n = it.a.flags.responses;
+      if (n == null || savedNow.get(it.id) === n) continue;
+      const old = seen[it.id];
+      const oldN = old && old.v && old.v.totalResponsesCount;
+      if (typeof oldN === 'number' && oldN > n) continue;
+      savedNow.set(it.id, n);
       seen[it.id] = { t: Date.now(), v: slim(it.v), s: { medianResponses: stats.medianResponses, medianSalary: stats.medianSalary } };
       any = true;
     }
@@ -140,7 +152,13 @@
     flushTimer = setTimeout(() => {
       flushTimer = null;
       seenStore.get().then((stored) => {
-        const all = { ...stored, ...seen };
+        const all = { ...stored };
+        // Запись из другой вкладки с большим числом откликов не затираем.
+        for (const [id, e] of Object.entries(seen)) {
+          const a = all[id] && all[id].v && all[id].v.totalResponsesCount;
+          const b = e && e.v && e.v.totalResponsesCount;
+          if (!(typeof a === 'number' && typeof b === 'number' && a > b)) all[id] = e;
+        }
         const now = Date.now();
         let ids = Object.keys(all).filter((id) => now - all[id].t <= SEEN_TTL);
         if (ids.length > SEEN_MAX) ids = ids.sort((x, y) => all[y].t - all[x].t).slice(0, SEEN_MAX);
@@ -226,12 +244,21 @@
     let row = card.querySelector(':scope > .rv-collapsed');
     if (!reason) { if (row) row.remove(); return; }
     const name = ((card.querySelector(TITLE) || {}).textContent || 'вакансия').trim();
-    const text = `Скрыто: «${name}» — ${reason}`;
-    if (row && row.dataset.text === text) return;
+    const dates = S.datesLine(a);
+    const key = `${a.score}|${name}|${reason}|${dates}`;
+    if (row && row.dataset.key === key) return;
     if (row) row.remove();
-    row = h('div', { class: 'rv-collapsed', 'data-text': text }, [
+    // Две короткие строки: название, ниже причина и даты.
+    row = h('div', { class: 'rv-collapsed', 'data-key': key, title: `Скрыто: «${name}» — ${reason}${dates ? `, ${dates}` : ''}` }, [
       h('span', { class: `rv-mini rv-${a.level}`, text: String(a.score) }),
-      h('span', { class: 'rv-collapsed-text', text }),
+      h('div', { class: 'rv-c-body' }, [
+        h('div', { class: 'rv-c-name', text: name }),
+        h('div', { class: 'rv-c-meta' }, [
+          h('span', { class: 'rv-c-reason', text: `Скрыто: ${reason}` }),
+          dates ? h('span', { class: a.flags.longGap ? 'rv-c-dates rv-c-warn' : 'rv-c-dates', text: dates }) : null,
+          a.flags.longGap && a.flags.responses ? h('span', { class: 'rv-c-dates', text: 'отклики копились с даты создания' }) : null,
+        ]),
+      ]),
       h('button', { type: 'button', class: 'rv-show', text: 'Показать', onclick: (e) => { e.preventDefault(); e.stopPropagation(); revealed.add(a.id); render(); } }),
     ]);
     card.append(row);
@@ -380,6 +407,7 @@
       if (v) items.push({ card, id, v, li: card.closest('li') });
     }
     const stats = S.pageStats(items.map((i) => i.v));
+    if (!SEARCH) { stats.medianResponses = null; stats.medianSalary = null; }
     let hidden = 0;
     for (const it of items) {
       it.a = S.analyze(it.v, stats, Date.now(), settings.weights);

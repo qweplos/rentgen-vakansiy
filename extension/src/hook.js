@@ -11,7 +11,7 @@
 
   const KEEP = [
     'vacancyId', 'creationTime', 'publicationTime', 'responsesCount', 'totalResponsesCount',
-    'userTestPresent', '@responseLetterRequired', 'compensation', 'labels', 'extraLabels',
+    'userTestPresent', '@responseLetterRequired', 'compensation', 'labels', 'extraLabels', 'archived',
   ];
 
   function trim(v) {
