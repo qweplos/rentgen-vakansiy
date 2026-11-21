@@ -216,11 +216,19 @@
     return { id: String(v.vacancyId), score, level, levelText: LEVEL_TEXT[level], factors, chips: chips.slice(0, 5), flags };
   }
 
+  const LIMIT_DEFAULT = 100;
+  // Порог «до N откликов»: целое от 1 до 10 000, иначе значение по умолчанию.
+  function responsesLimit(s) {
+    const n = Math.round(Number(s && s.responsesLimit));
+    return Number.isFinite(n) && n >= 1 ? Math.min(n, 10000) : LIMIT_DEFAULT;
+  }
+
   // Причина скрыть вакансию по включённым фильтрам или null.
   function hiddenReason(a, s) {
     const f = a.flags;
+    const limit = responsesLimit(s);
     if (s.hideZombie && f.zombie) return `зомби-вакансия, висит ${f.ageDays} ${plural(f.ageDays, 'день', 'дня', 'дней')}`;
-    if (s.maxResponses && f.responses != null && f.responses > 100) return `${fmtInt(f.responses)} ${plural(f.responses, 'отклик', 'отклика', 'откликов')} — больше 100`;
+    if (s.maxResponses && f.responses != null && f.responses > limit) return `${fmtInt(f.responses)} ${plural(f.responses, 'отклик', 'отклика', 'откликов')} — больше ${fmtInt(limit)}`;
     if (s.onlySalary && !f.hasSalary) return 'зарплата не указана';
     if (s.noTest && f.test) return 'есть тестовое задание';
     if (s.onlineOnly && !f.online) return 'рекрутер не в сети';
@@ -247,7 +255,7 @@
     return out;
   }
 
-  const api = { analyze, pageStats, hiddenReason, collectVacancies, monthlyNet, median, plural, toTime, fmtInt, levelOf, BASE, WEIGHTS };
+  const api = { analyze, pageStats, hiddenReason, collectVacancies, monthlyNet, median, plural, toTime, fmtInt, levelOf, BASE, WEIGHTS, responsesLimit, LIMIT_DEFAULT };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.RVScore = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const S = globalThis.RVScore;
-  const DEFAULTS = { hideZombie: true, maxResponses: false, onlySalary: false, noTest: false, onlineOnly: false, sort: 'score', weights: {} };
+  const DEFAULTS = { hideZombie: true, maxResponses: false, onlySalary: false, noTest: false, onlineOnly: false, sort: 'score', weights: {}, responsesLimit: 100 };
   const FILTERS = [
     ['hideZombie', 'Зомби-вакансии (старые и переподнятые)'],
     ['maxResponses', 'Больше 100 откликов'],
@@ -14,6 +14,13 @@
   const area = chrome.storage.local;
 
   let settings = { ...DEFAULTS };
+
+  // Тема окна — как у hh в последний раз, когда расширение его видело; иначе — как в системе.
+  area.get('rvTheme', (x) => {
+    const t = x && x.rvTheme;
+    const dark = t ? t === 'night' : matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.classList.toggle('dark', dark);
+  });
 
   function load(cb) {
     area.get('rvSettings', (x) => {
@@ -39,7 +46,27 @@
       input.addEventListener('change', () => save({ [key]: input.checked }));
       const l = document.createElement('label');
       l.className = 'opt';
-      l.append(input, label);
+      if (key === 'maxResponses') {
+        // «Больше [100] откликов» — число редактируется, изменение сразу включает фильтр.
+        const num = document.createElement('input');
+        num.type = 'number'; num.min = '1'; num.max = '10000'; num.step = '10';
+        num.className = 'num';
+        num.value = String(S.responsesLimit(settings));
+        num.setAttribute('aria-label', 'Максимум откликов');
+        num.addEventListener('click', (e) => e.preventDefault()); // не переключать галочку кликом по полю
+        let last = S.responsesLimit(settings);
+        num.addEventListener('change', () => {
+          if (!(Number(num.value) >= 1)) { num.value = String(last); return; }
+          const n = S.responsesLimit({ responsesLimit: num.value });
+          last = n;
+          num.value = String(n);
+          input.checked = true;
+          save({ responsesLimit: n, maxResponses: true });
+        });
+        l.append(input, 'Больше', num, 'откликов');
+      } else {
+        l.append(input, label);
+      }
       filters.append(l);
     }
 

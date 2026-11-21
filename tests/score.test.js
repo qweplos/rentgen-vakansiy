@@ -129,3 +129,18 @@ test('веса: мусорные значения игнорируются и о
   assert.equal(hi.factors.find((f) => f.key === 'competition').points, comp.points * 2);
   assert.ok(hi.score >= 0 && hi.score <= 100);
 });
+
+test('порог «до N откликов»: настраивается, по умолчанию 100, мусор игнорируется', () => {
+  assert.equal(S.responsesLimit({}), 100);
+  assert.equal(S.responsesLimit({ responsesLimit: '50' }), 50);
+  assert.equal(S.responsesLimit({ responsesLimit: 0 }), 100);
+  assert.equal(S.responsesLimit({ responsesLimit: 'abc' }), 100);
+  assert.equal(S.responsesLimit({ responsesLimit: 99999 }), 10000);
+
+  const v = list.find((x) => x.vacancyId === 139582801); // 142 отклика
+  const a = S.analyze(v, stats, NOW);
+  assert.match(S.hiddenReason(a, { maxResponses: true }), /больше 100$/);
+  assert.equal(S.hiddenReason(a, { maxResponses: true, responsesLimit: 200 }), null);
+  assert.match(S.hiddenReason(a, { maxResponses: true, responsesLimit: 50 }), /142 отклика — больше 50$/);
+  assert.equal(S.hiddenReason(a, { maxResponses: false, responsesLimit: 50 }), null);
+});

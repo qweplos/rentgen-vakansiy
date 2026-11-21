@@ -15,7 +15,7 @@
   const CARD = '[data-qa="vacancy-serp__vacancy"]';
   const TITLE = '[data-qa="serp-item__title"]';
   const OURS = '.rv-toolbar,.rv-badge,.rv-strip,.rv-collapsed,.rv-pop,.rv-vpanel';
-  const DEFAULTS = { hideZombie: true, maxResponses: false, onlySalary: false, noTest: false, onlineOnly: false, sort: 'score', weights: {} };
+  const DEFAULTS = { hideZombie: true, maxResponses: false, onlySalary: false, noTest: false, onlineOnly: false, sort: 'score', weights: {}, responsesLimit: 100 };
   const FILTERS = [
     ['hideZombie', 'Скрыть зомби-вакансии'],
     ['maxResponses', 'До 100 откликов'],
@@ -252,12 +252,36 @@
         h('label', { class: 'rv-sort' }, ['Сортировка:', select]),
       ]),
       h('div', { class: 'rv-row rv-filters' }, [
-        ...FILTERS.map(([k, label]) =>
-          h('button', { type: 'button', class: 'rv-filter', 'data-key': k, 'aria-pressed': 'false', text: label, onclick: () => update({ [k]: !settings[k] }) })),
+        ...FILTERS.map(([k, label]) => (k === 'maxResponses' ? buildLimitFilter() :
+          h('button', { type: 'button', class: 'rv-filter', 'data-key': k, 'aria-pressed': 'false', text: label, onclick: () => update({ [k]: !settings[k] }) }))),
         h('button', { type: 'button', class: 'rv-filter rv-wbtn', 'aria-expanded': 'false', text: 'Важность факторов', onclick: toggleWeights }),
       ]),
       buildWeights(),
     ]);
+  }
+
+  // «До [100] откликов»: клик по кнопке включает фильтр, число меняется прямо в ней.
+  // Это не <button>: поле ввода внутри кнопки браузеры обрабатывают ненадёжно.
+  function buildLimitFilter() {
+    const input = h('input', { type: 'number', min: '1', max: '10000', step: '10', class: 'rv-limit-input', 'aria-label': 'Максимум откликов', inputmode: 'numeric' });
+    const apply = () => {
+      // Пустое или неверное число — возвращаем прежнее, а не значение по умолчанию.
+      if (!(Number(input.value) >= 1)) { input.value = String(S.responsesLimit(settings)); return; }
+      const n = S.responsesLimit({ responsesLimit: input.value });
+      input.value = String(n);
+      if (n !== S.responsesLimit(settings) || !settings.maxResponses) update({ responsesLimit: n, maxResponses: true });
+    };
+    input.addEventListener('change', apply);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+    input.addEventListener('click', (e) => e.stopPropagation());
+    const pill = h('span', { class: 'rv-filter rv-limit', role: 'button', tabindex: '0', 'data-key': 'maxResponses', 'aria-pressed': 'false' }, ['До', input, 'откликов']);
+    pill.addEventListener('click', (e) => { if (e.target !== input) update({ maxResponses: !settings.maxResponses }); });
+    pill.addEventListener('keydown', (e) => {
+      if (e.target === input || (e.key !== 'Enter' && e.key !== ' ')) return;
+      e.preventDefault();
+      update({ maxResponses: !settings.maxResponses });
+    });
+    return pill;
   }
 
   function buildWeights() {
@@ -305,6 +329,11 @@
       const on = String(!!settings[b.dataset.key]);
       if (b.getAttribute('aria-pressed') !== on) b.setAttribute('aria-pressed', on);
     });
+    const lim = tb.querySelector('.rv-limit-input');
+    if (lim && document.activeElement !== lim) {
+      const v = String(S.responsesLimit(settings));
+      if (lim.value !== v) lim.value = v;
+    }
     tb.querySelectorAll('.rv-w-range').forEach((r) => {
       const i = String(wIndex(settings.weights && settings.weights[r.dataset.key]));
       if (r.value !== i) r.value = i;
@@ -461,6 +490,24 @@
       });
     }
   } catch (e) { /* ignore */ }
+
+  // Окно настроек по значку не видит сайт, поэтому запоминаем, какая тема сейчас у hh.
+  function rememberTheme() {
+    const b = document.body;
+    const c = globalThis.chrome;
+    if (!b || !(c && c.storage && c.storage.local)) return;
+    const theme = b.classList.contains('magritte-night-theme') ? 'night'
+      : b.classList.contains('magritte-day-theme') ? 'day' : null;
+    if (!theme || theme === rememberTheme.last) return;
+    rememberTheme.last = theme;
+    try { c.storage.local.set({ rvTheme: theme }); } catch (e) { /* ignore */ }
+  }
+  function watchTheme() {
+    if (!document.body) return;
+    rememberTheme();
+    new MutationObserver(rememberTheme).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  }
+  if (document.body) watchTheme(); else document.addEventListener('DOMContentLoaded', watchTheme, { once: true });
 
   Promise.all([store.get(), seenStore.get()]).then(([saved, seenSaved]) => {
     if (saved && typeof saved === 'object') settings = { ...DEFAULTS, ...saved };
