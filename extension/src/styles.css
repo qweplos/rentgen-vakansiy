@@ -1,0 +1,105 @@
+/* Рентген вакансий — стили. Все классы с префиксом rv-, чтобы не задевать hh.ru. */
+
+.rv-card { position: relative; }
+
+/* Бейдж оценки */
+.rv-badge {
+  position: absolute; top: 16px; right: 16px; z-index: 3;
+  width: 56px; height: 56px; border-radius: 16px; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-family: inherit; line-height: 1; cursor: help; user-select: none;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.rv-badge:hover, .rv-badge:focus-visible { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(23, 33, 51, .12); outline: none; }
+.rv-badge b { font-size: 22px; font-weight: 700; }
+.rv-badge span { font-size: 10px; font-weight: 500; opacity: .75; margin-top: 4px; }
+.rv-high { background: #E3F8EC; color: #0A8A4A; }
+.rv-mid  { background: #FFF3DC; color: #B26A00; }
+.rv-low  { background: #FFE5E5; color: #D02B2B; }
+
+/* Заголовок не должен уходить под бейдж */
+.rv-card [data-qa="serp-item__title"] { margin-right: 64px; display: inline-block; }
+
+/* Полоса с данными */
+.rv-strip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 8px 12px; margin: 12px 0 16px; border-radius: 14px;
+  background: #F7F8FA; font-family: inherit;
+}
+.rv-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px;
+  border-radius: 14px; background: #fff; color: #2A3137;
+  font-size: 12px; font-weight: 500; line-height: 1; white-space: nowrap;
+}
+.rv-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.rv-dot-good { background: #0DC267; }
+.rv-dot-warn { background: #FF9F0A; }
+.rv-dot-bad { background: #FF4D4D; }
+.rv-dot-neutral { background: #8A96A3; }
+.rv-mark {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 20px; height: 20px; border-radius: 6px; background: #6A4CFF; color: #fff;
+  font-size: 11px; font-weight: 700; line-height: 1;
+}
+.rv-mark-lg { width: 28px; height: 28px; border-radius: 8px; font-size: 15px; }
+
+/* Панель над выдачей */
+.rv-toolbar {
+  box-sizing: border-box; margin: 0 0 16px; padding: 16px; border-radius: 20px;
+  background: #F6F4FF; border: 1px solid #E6E0FF; color: #2A3137; font-family: inherit; list-style: none;
+}
+.rv-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.rv-title { font-size: 15px; font-weight: 600; }
+.rv-summary { font-size: 13px; color: #5B6875; }
+.rv-sort { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #5B6875; }
+.rv-select {
+  height: 32px; padding: 0 10px; border-radius: 10px; border: 1px solid #E6E0FF; background: #fff;
+  font: inherit; font-size: 13px; font-weight: 500; color: #2A3137; cursor: pointer;
+}
+.rv-filters { margin-top: 12px; gap: 8px; }
+.rv-filter {
+  height: 32px; padding: 0 14px; border-radius: 16px; border: 1px solid #E0E4EA; background: #fff;
+  font: inherit; font-size: 13px; font-weight: 500; color: #2A3137; cursor: pointer;
+  transition: background .12s ease, color .12s ease, border-color .12s ease;
+}
+.rv-filter:hover { border-color: #6A4CFF; }
+.rv-filter[aria-pressed="true"] { background: #6A4CFF; border-color: #6A4CFF; color: #fff; }
+
+/* Скрытая вакансия — сворачивается в строку */
+.rv-card.rv-hidden > :not(.rv-collapsed) { display: none !important; }
+.rv-card.rv-hidden { background: #FAFAFB !important; box-shadow: none !important; outline: 1px dashed #D5DBE2; outline-offset: -1px; }
+.rv-collapsed {
+  display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box;
+  padding: 0 4px; font-family: inherit; font-size: 14px; color: #5B6875;
+}
+.rv-collapsed-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-mini {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 32px; height: 32px; border-radius: 10px; font-size: 13px; font-weight: 700;
+}
+.rv-show { flex: none; padding: 0; border: 0; background: none; font: inherit; font-size: 14px; font-weight: 500; color: #0070FF; cursor: pointer; }
+
+/* Сортировка без перестановки DOM: порядок через CSS order */
+.rv-sorted { display: flex !important; flex-direction: column; }
+
+/* Расшифровка оценки */
+.rv-pop {
+  position: absolute; z-index: 2147483000; display: none; box-sizing: border-box;
+  width: 360px; padding: 18px 20px; border-radius: 20px; background: #fff;
+  border: 1px solid #E3E8EC; box-shadow: 0 12px 32px rgba(23, 33, 51, .12);
+  color: #2A3137; font-family: inherit; font-size: 13px; line-height: 1.35; text-align: left;
+}
+.rv-pop-head { display: flex; align-items: baseline; gap: 10px; }
+.rv-pop-head span { color: #5B6875; }
+.rv-pop-score { font-size: 32px; font-weight: 700; line-height: 1; }
+.rv-fg-high { color: #0A8A4A; } .rv-fg-mid { color: #B26A00; } .rv-fg-low { color: #D02B2B; }
+.rv-bar { height: 8px; margin: 14px 0 6px; border-radius: 4px; background: #EEF1F5; overflow: hidden; }
+.rv-bar i { display: block; height: 100%; border-radius: 4px; }
+.rv-bar-high { background: #0DC267; } .rv-bar-mid { background: #FF9F0A; } .rv-bar-low { background: #FF4D4D; }
+.rv-row-f { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid #EEF1F5; }
+.rv-row-f:first-of-type { border-top: 0; }
+.rv-f-title { font-weight: 500; }
+.rv-f-detail { margin-top: 2px; font-size: 12px; color: #768694; }
+.rv-row-f > b { flex: none; font-size: 14px; font-weight: 600; }
+.rv-plus { color: #0A8A4A; } .rv-minus { color: #D02B2B; } .rv-zero { color: #8A96A3; }
+.rv-pop-foot { margin-top: 10px; padding-top: 10px; border-top: 1px solid #EEF1F5; font-size: 12px; color: #768694; }
