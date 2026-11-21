@@ -1,0 +1,14 @@
+/* ХаХантер — скрытие рекламы hh.ru. Работает, только пока на <html> стоит класс rv-noads
+   (его ставит noads.js по настройке «Скрывать рекламу hh»). */
+
+/* Рекламные места hh (сеть Adfox) и их обёртки */
+html.rv-noads .banner-place,
+html.rv-noads aside[class*="HH-Banner-"],
+html.rv-noads aside[class*="HHC-Banner-"],
+html.rv-noads [class*="banner-place-wrapper"],
+html.rv-noads .vacancy-adaptive-big-banner-wrapper,
+html.rv-noads .vacancy-adaptive-banners-small-banners-wrapper,
+/* Блоки, которые noads.js нашёл по содержимому (курсы с промокодами и т. п.) */
+html.rv-noads [data-rv-ad] {
+  display: none !important;
+}

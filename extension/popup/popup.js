@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const S = globalThis.RVScore;
-  const DEFAULTS = { hideZombie: true, maxResponses: false, onlySalary: false, noTest: false, onlineOnly: false, sort: 'score', weights: {}, responsesLimit: 100, siteTheme: 'site' };
+  const DEFAULTS = { hideZombie: true, maxResponses: false, onlySalary: false, noTest: false, onlineOnly: false, sort: 'score', weights: {}, responsesLimit: 100, siteTheme: 'site', hideAds: true };
   const FILTERS = [
     ['hideZombie', 'Зомби-вакансии (старые и переподнятые)'],
     ['maxResponses', 'Больше 100 откликов'],
@@ -69,6 +69,10 @@
       }
       filters.append(l);
     }
+
+    const ads = document.getElementById('hideAds');
+    ads.checked = settings.hideAds !== false;
+    ads.addEventListener('change', () => save({ hideAds: ads.checked }));
 
     const theme = document.getElementById('siteTheme');
     theme.value = ['night', 'system'].includes(settings.siteTheme) ? settings.siteTheme : 'site';

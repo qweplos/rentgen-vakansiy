@@ -15,7 +15,7 @@
   const CARD = '[data-qa="vacancy-serp__vacancy"]';
   const TITLE = '[data-qa="serp-item__title"]';
   const OURS = '.rv-toolbar,.rv-badge,.rv-strip,.rv-collapsed,.rv-pop,.rv-vpanel';
-  const DEFAULTS = { hideZombie: true, maxResponses: false, onlySalary: false, noTest: false, onlineOnly: false, sort: 'score', weights: {}, responsesLimit: 100, siteTheme: 'site' };
+  const DEFAULTS = { hideZombie: true, maxResponses: false, onlySalary: false, noTest: false, onlineOnly: false, sort: 'score', weights: {}, responsesLimit: 100, siteTheme: 'site', hideAds: true };
   const FILTERS = [
     ['hideZombie', 'Скрыть зомби-вакансии'],
     ['maxResponses', 'До 100 откликов'],
