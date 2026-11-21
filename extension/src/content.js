@@ -187,7 +187,7 @@
 
   function buildStrip(a) {
     return h('div', { class: 'rv-strip' }, [
-      h('span', { class: 'rv-mark', title: 'ХаХантер', text: 'Х' }),
+      h('span', { class: 'rv-mark', title: 'ХаХантер', text: 'Ха' }),
       ...a.chips.map((c) => h('span', { class: 'rv-chip' }, [h('i', { class: `rv-dot rv-dot-${c.tone}` }), c.text])),
     ]);
   }
@@ -246,7 +246,7 @@
     select.addEventListener('change', () => update({ sort: select.value }));
     return h('div', { class: 'rv-toolbar' }, [
       h('div', { class: 'rv-row' }, [
-        h('span', { class: 'rv-mark rv-mark-lg', text: 'Х' }),
+        h('span', { class: 'rv-mark rv-mark-lg', text: 'Ха' }),
         h('b', { class: 'rv-title', text: 'ХаХантер' }),
         h('span', { class: 'rv-summary' }),
         h('label', { class: 'rv-sort' }, ['Сортировка:', select]),

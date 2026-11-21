@@ -9,7 +9,7 @@
 }
 body { width: 360px; margin: 0; padding: 16px; font: 13px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text); background: var(--bg); }
 header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 15px; }
-.mark { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 700; }
+.mark { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 7px; background: #E8242C; color: #fff; font-size: 14px; font-weight: 800; font-style: italic; letter-spacing: -.02em; }
 section { padding: 12px 0; border-top: 1px solid var(--line); }
 h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
 .opt { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; }
