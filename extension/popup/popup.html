@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Рентген вакансий</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<header>
+  <span class="mark">Р</span>
+  <b>Рентген вакансий</b>
+</header>
+
+<section>
+  <h2>Что скрывать</h2>
+  <div id="filters"></div>
+</section>
+
+<section>
+  <h2>Сортировка выдачи</h2>
+  <select id="sort">
+    <option value="score">Сначала лучшие</option>
+    <option value="hh">Как на hh</option>
+  </select>
+</section>
+
+<section>
+  <h2>Важность факторов</h2>
+  <div id="weights"></div>
+  <button id="reset" type="button">Сбросить важность</button>
+</section>
+
+<p class="foot">Изменения сразу применяются на открытых страницах hh.ru. Настройки хранятся только в вашем браузере.</p>
+
+<script src="../src/score.js"></script>
+<script src="popup.js"></script>
+</body>
+</html>

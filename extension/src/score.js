@@ -92,7 +92,23 @@
 
   const LEVEL_TEXT = { high: 'хорошие шансы', mid: 'средние шансы', low: 'слабые шансы' };
 
-  function analyze(v, stats = {}, now = Date.now()) {
+  // Факторы, вес которых может менять пользователь: 0 — не учитывать, 1 — как есть, 2 — вдвое важнее.
+  const WEIGHTS = [
+    ['competition', 'Конкуренция (отклики)'],
+    ['freshness', 'Свежесть вакансии'],
+    ['salary', 'Зарплата'],
+    ['reply', 'Скорость ответа'],
+    ['online', 'Рекрутер онлайн'],
+    ['test', 'Тестовое задание'],
+    ['letter', 'Сопроводительное письмо'],
+  ];
+
+  function weightOf(weights, key) {
+    const w = weights && weights[key];
+    return typeof w === 'number' && Number.isFinite(w) ? Math.max(0, Math.min(2, w)) : 1;
+  }
+
+  function analyze(v, stats = {}, now = Date.now(), weights = null) {
     const factors = [];
     const chips = [];
     const flags = { zombie: false, test: false, letter: false, online: false, hasSalary: false };
@@ -193,6 +209,7 @@
       chips.push({ key: 'letter', text: 'Нужно сопроводительное письмо', tone: 'neutral' });
     }
 
+    for (const f of factors) f.points = Math.round(f.points * weightOf(weights, f.key)) || 0;
     const sum = factors.reduce((s, f) => s + f.points, 0);
     const score = Math.max(0, Math.min(100, Math.round(BASE + sum)));
     const level = levelOf(score);
@@ -230,7 +247,7 @@
     return out;
   }
 
-  const api = { analyze, pageStats, hiddenReason, collectVacancies, monthlyNet, median, plural, toTime, fmtInt, levelOf, BASE };
+  const api = { analyze, pageStats, hiddenReason, collectVacancies, monthlyNet, median, plural, toTime, fmtInt, levelOf, BASE, WEIGHTS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.RVScore = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

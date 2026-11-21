@@ -104,3 +104,28 @@ test('поиск вакансий в произвольном ответе hh', 
   const found = S.collectVacancies(resp);
   assert.deepEqual(found.map((v) => v.vacancyId).sort(), [5, 139582801, 139663885, 139688647].sort());
 });
+
+test('веса: без настроек оценка не меняется, 0 отключает фактор, 2 удваивает', () => {
+  const v = list.find((x) => x.vacancyId === 139582801); // 142 отклика, зарплата указана
+  const base = S.analyze(v, stats, NOW);
+  assert.equal(S.analyze(v, stats, NOW, {}).score, base.score);
+  assert.equal(S.analyze(v, stats, NOW, null).score, base.score);
+
+  const comp = base.factors.find((f) => f.key === 'competition');
+  const off = S.analyze(v, stats, NOW, { competition: 0 });
+  assert.equal(off.factors.find((f) => f.key === 'competition').points, 0);
+  assert.equal(off.score, base.score - comp.points);
+
+  const dbl = S.analyze(v, stats, NOW, { competition: 2 });
+  assert.equal(dbl.factors.find((f) => f.key === 'competition').points, comp.points * 2);
+});
+
+test('веса: мусорные значения игнорируются и ограничиваются 0..2', () => {
+  const v = list[0];
+  const base = S.analyze(v, stats, NOW);
+  assert.equal(S.analyze(v, stats, NOW, { competition: 'x', salary: NaN }).score, base.score);
+  const hi = S.analyze(v, stats, NOW, { competition: 99 });
+  const comp = base.factors.find((f) => f.key === 'competition');
+  assert.equal(hi.factors.find((f) => f.key === 'competition').points, comp.points * 2);
+  assert.ok(hi.score >= 0 && hi.score <= 100);
+});

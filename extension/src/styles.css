@@ -103,3 +103,18 @@
 .rv-row-f > b { flex: none; font-size: 14px; font-weight: 600; }
 .rv-plus { color: #0A8A4A; } .rv-minus { color: #D02B2B; } .rv-zero { color: #8A96A3; }
 .rv-pop-foot { margin-top: 10px; padding-top: 10px; border-top: 1px solid #EEF1F5; font-size: 12px; color: #768694; }
+
+/* Важность факторов */
+.rv-weights { margin-top: 12px; padding-top: 12px; border-top: 1px solid #EEF1F5; display: grid; gap: 8px; }
+.rv-weights[hidden] { display: none; }
+.rv-w-row { display: grid; grid-template-columns: 200px 1fr 120px; align-items: center; gap: 12px; font-size: 14px; }
+.rv-w-name { color: #1F2937; }
+.rv-w-range { width: 100%; accent-color: #6A4CFF; }
+.rv-w-val { color: #6B7280; font-size: 13px; }
+.rv-w-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 4px; color: #6B7280; font-size: 13px; }
+
+/* Страница отдельной вакансии */
+.rv-vpanel { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 16px; margin: 16px 0; padding: 12px 16px; border-radius: 16px; background: #F7F8FA; font-family: inherit; }
+.rv-vpanel .rv-badge { position: static; flex: none; }
+.rv-vpanel .rv-strip { flex: 1; min-width: 0; margin: 0; padding: 0; background: none; }
+.rv-vnote { width: 100%; font-size: 12px; color: #768694; }

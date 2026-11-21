@@ -14,8 +14,8 @@
 
   const CARD = '[data-qa="vacancy-serp__vacancy"]';
   const TITLE = '[data-qa="serp-item__title"]';
-  const OURS = '.rv-toolbar,.rv-badge,.rv-strip,.rv-collapsed,.rv-pop';
-  const DEFAULTS = { hideZombie: true, maxResponses: false, onlySalary: false, noTest: false, onlineOnly: false, sort: 'score' };
+  const OURS = '.rv-toolbar,.rv-badge,.rv-strip,.rv-collapsed,.rv-pop,.rv-vpanel';
+  const DEFAULTS = { hideZombie: true, maxResponses: false, onlySalary: false, noTest: false, onlineOnly: false, sort: 'score', weights: {} };
   const FILTERS = [
     ['hideZombie', 'Скрыть зомби-вакансии'],
     ['maxResponses', 'До 100 откликов'],
@@ -23,12 +23,24 @@
     ['noTest', 'Без тестового'],
     ['onlineOnly', 'Рекрутер онлайн'],
   ];
+  const KEEP = [
+    'vacancyId', 'creationTime', 'publicationTime', 'responsesCount', 'totalResponsesCount',
+    'userTestPresent', '@responseLetterRequired', 'compensation', 'labels', 'extraLabels',
+  ];
+  const SEEN_TTL = 7 * 864e5; // как долго помним вакансии из выдачи
+  const SEEN_MAX = 400;
+  const VID = (location.pathname.match(/^\/vacancy\/(\d+)/) || [])[1] || null; // страница одной вакансии
   const MINUS = '−';
+  const W_LABELS = ['не учитывать', 'почти не важно', 'как есть', 'важнее', 'очень важно'];
+  const wIndex = (w) => Math.round((typeof w === 'number' ? w : 1) * 2);
 
   const data = new Map();      // id вакансии -> данные hh
   const revealed = new Set();  // скрытые вакансии, которые пользователь раскрыл
   const analysisOf = new WeakMap(); // бейдж -> результат analyze
   let settings = { ...DEFAULTS };
+  let seen = {};              // id -> { t, v, s }: вакансии, которые видели в выдаче
+  const savedNow = new Set();
+  let flushTimer = null;
   let timer = null;
 
   // ---------- хранение настроек ----------
@@ -41,6 +53,18 @@
       };
     }
     let mem = null; // запасной вариант без API расширения (проверка в консоли)
+    return { get: async () => mem, set: (v) => { mem = v; } };
+  })();
+
+  const seenStore = (() => {
+    const c = globalThis.chrome;
+    if (c && c.storage && c.storage.local) {
+      return {
+        get: () => new Promise((res) => { try { c.storage.local.get('rvSeen', (x) => res((x && x.rvSeen) || {})); } catch (e) { res({}); } }),
+        set: (v) => { try { c.storage.local.set({ rvSeen: v }); } catch (e) { /* ignore */ } },
+      };
+    }
+    let mem = {};
     return { get: async () => mem, set: (v) => { mem = v; } };
   })();
 
@@ -93,6 +117,63 @@
     if (e.source !== window || !e.data || e.data.source !== 'rv-hook' || !Array.isArray(e.data.vacancies)) return;
     ingest(e.data.vacancies);
   });
+
+  // ---------- память о вакансиях из выдачи ----------
+  // На странице самой вакансии hh не отдаёт ни число откликов, ни дату создания,
+  // поэтому оценку там считаем по данным, которые видели в выдаче.
+  function slim(v) {
+    const r = {};
+    for (const k of KEEP) if (k in v) r[k] = v[k];
+    if (v.employerManager) r.employerManager = { latestActivity: v.employerManager.latestActivity };
+    return r;
+  }
+
+  function remember(items, stats) {
+    let any = false;
+    for (const it of items) {
+      if (savedNow.has(it.id) || it.a.flags.responses == null) continue;
+      savedNow.add(it.id);
+      seen[it.id] = { t: Date.now(), v: slim(it.v), s: { medianResponses: stats.medianResponses, medianSalary: stats.medianSalary } };
+      any = true;
+    }
+    if (!any || flushTimer) return;
+    flushTimer = setTimeout(() => {
+      flushTimer = null;
+      seenStore.get().then((stored) => {
+        const all = { ...stored, ...seen };
+        const now = Date.now();
+        let ids = Object.keys(all).filter((id) => now - all[id].t <= SEEN_TTL);
+        if (ids.length > SEEN_MAX) ids = ids.sort((x, y) => all[y].t - all[x].t).slice(0, SEEN_MAX);
+        const out = {};
+        for (const id of ids) out[id] = all[id];
+        seen = out;
+        seenStore.set(out);
+      });
+    }, 1500);
+  }
+
+  function renderVacancy() {
+    const title = document.querySelector('[data-qa="vacancy-title"]');
+    let panel = document.querySelector('.rv-vpanel');
+    const e = seen[VID];
+    if (!title || !e || Date.now() - e.t > SEEN_TTL) { if (panel) panel.remove(); return; }
+    const a = S.analyze(e.v, e.s || {}, Date.now(), settings.weights);
+    const key = `${VID}:${a.score}:${e.t}`;
+    if (panel && panel.dataset.rvKey === key && panel.previousElementSibling === title) {
+      const b = panel.querySelector('.rv-badge');
+      if (b) analysisOf.set(b, a);
+      return;
+    }
+    if (panel) panel.remove();
+    const when = new Date(e.t).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+    panel = h('div', { class: 'rv-vpanel', 'data-rv-key': key }, [
+      buildBadge(a),
+      buildStrip(a),
+      h('div', { class: 'rv-vnote', text: `Оценка Рентгена по данным выдачи на ${when}: на странице вакансии hh не показывает число откликов. Наведите на оценку — увидите расшифровку.` }),
+    ]);
+    panel.dataset.rvKey = key;
+    title.insertAdjacentElement('afterend', panel);
+  }
 
   // ---------- карточка ----------
   function buildBadge(a) {
@@ -170,9 +251,40 @@
         h('span', { class: 'rv-summary' }),
         h('label', { class: 'rv-sort' }, ['Сортировка:', select]),
       ]),
-      h('div', { class: 'rv-row rv-filters' }, FILTERS.map(([k, label]) =>
-        h('button', { type: 'button', class: 'rv-filter', 'data-key': k, 'aria-pressed': 'false', text: label, onclick: () => update({ [k]: !settings[k] }) }))),
+      h('div', { class: 'rv-row rv-filters' }, [
+        ...FILTERS.map(([k, label]) =>
+          h('button', { type: 'button', class: 'rv-filter', 'data-key': k, 'aria-pressed': 'false', text: label, onclick: () => update({ [k]: !settings[k] }) })),
+        h('button', { type: 'button', class: 'rv-filter rv-wbtn', 'aria-expanded': 'false', text: 'Важность факторов', onclick: toggleWeights }),
+      ]),
+      buildWeights(),
     ]);
+  }
+
+  function buildWeights() {
+    const rows = S.WEIGHTS.map(([key, label]) => {
+      const out = h('span', { class: 'rv-w-val' });
+      const input = h('input', { type: 'range', min: '0', max: '4', step: '1', class: 'rv-w-range', 'data-key': key, 'aria-label': label });
+      input.addEventListener('input', () => {
+        const w = Number(input.value) / 2;
+        setText(out, W_LABELS[Number(input.value)]);
+        update({ weights: { ...settings.weights, [key]: w } });
+      });
+      return h('label', { class: 'rv-w-row' }, [h('span', { class: 'rv-w-name', text: label }), input, out]);
+    });
+    return h('div', { class: 'rv-weights', hidden: true }, [
+      ...rows,
+      h('div', { class: 'rv-w-foot' }, [
+        h('span', { text: 'Оценка пересчитывается сразу. Настройки хранятся только в вашем браузере.' }),
+        h('button', { type: 'button', class: 'rv-filter', text: 'Сбросить', onclick: () => update({ weights: {} }) }),
+      ]),
+    ]);
+  }
+
+  function toggleWeights() {
+    const tb = document.querySelector('.rv-toolbar');
+    const panel = tb.querySelector('.rv-weights');
+    panel.hidden = !panel.hidden;
+    tb.querySelector('.rv-wbtn').setAttribute('aria-expanded', String(!panel.hidden));
   }
 
   function update(patch) {
@@ -192,6 +304,11 @@
     tb.querySelectorAll('.rv-filter').forEach((b) => {
       const on = String(!!settings[b.dataset.key]);
       if (b.getAttribute('aria-pressed') !== on) b.setAttribute('aria-pressed', on);
+    });
+    tb.querySelectorAll('.rv-w-range').forEach((r) => {
+      const i = String(wIndex(settings.weights && settings.weights[r.dataset.key]));
+      if (r.value !== i) r.value = i;
+      setText(r.parentElement.querySelector('.rv-w-val'), W_LABELS[Number(i)]);
     });
   }
 
@@ -214,6 +331,7 @@
 
   // ---------- главный проход ----------
   function render() {
+    if (VID) return renderVacancy();
     const cards = [...document.querySelectorAll(CARD)];
     if (!cards.length) return;
     const list = cards[0].closest('ol, ul') || cards[0].parentElement.parentElement;
@@ -227,7 +345,7 @@
     const stats = S.pageStats(items.map((i) => i.v));
     let hidden = 0;
     for (const it of items) {
-      it.a = S.analyze(it.v, stats);
+      it.a = S.analyze(it.v, stats, Date.now(), settings.weights);
       decorate(it.card, it.a);
       const reason = revealed.has(it.id) ? null : S.hiddenReason(it.a, settings);
       if (reason) hidden++;
@@ -245,6 +363,7 @@
       }
       syncToolbar(list, summary);
     }
+    remember(items, stats);
   }
 
   function schedule() {
@@ -328,9 +447,25 @@
     }
   });
 
-  store.get().then((saved) => {
+  // Настройки из окна по клику на значок расширения применяются сразу, без перезагрузки страницы.
+  try {
+    const c = globalThis.chrome;
+    if (c && c.storage && c.storage.onChanged) {
+      c.storage.onChanged.addListener((ch, areaName) => {
+        if (areaName !== 'local' || !ch.rvSettings || !ch.rvSettings.newValue) return;
+        const next = { ...DEFAULTS, ...ch.rvSettings.newValue };
+        if (JSON.stringify(next) === JSON.stringify(settings)) return;
+        settings = next;
+        revealed.clear();
+        schedule();
+      });
+    }
+  } catch (e) { /* ignore */ }
+
+  Promise.all([store.get(), seenStore.get()]).then(([saved, seenSaved]) => {
     if (saved && typeof saved === 'object') settings = { ...DEFAULTS, ...saved };
-    readInitialState();
+    if (seenSaved && typeof seenSaved === 'object') seen = seenSaved;
+    if (!VID) readInitialState();
     schedule();
     observer.observe(document.documentElement, { childList: true, subtree: true });
   });
