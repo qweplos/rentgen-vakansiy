@@ -25,20 +25,21 @@
   --rv-zero-fg: #8A96A3;
 }
 .magritte-night-theme {
-  --rv-text: #F2F2F2;
-  --rv-muted: #ABABAB;
-  --rv-faint: #8C8C8C;
-  --rv-surface: #1B1B1B;
-  --rv-pop-bg: #262626;       /* на тон светлее карточки hh, чтобы поповер отделялся */
-  --rv-soft: #262626;
-  --rv-line: #333333;
-  --rv-border: #474747;
+  /* Палитра тёмной темы YouTube */
+  --rv-text: #F1F1F1;
+  --rv-muted: #AAAAAA;
+  --rv-faint: #717171;
+  --rv-surface: #212121;
+  --rv-pop-bg: #282828;       /* на тон светлее карточки, чтобы поповер отделялся */
+  --rv-soft: #272727;
+  --rv-line: #3F3F3F;
+  --rv-border: #3F3F3F;
   --rv-accent: #7B62FF;
-  --rv-tb-bg: #1F1B2E;
-  --rv-tb-border: #3A3160;
-  --rv-hidden-bg: #141414;
-  --rv-hidden-line: #3A3A3A;
-  --rv-link: #5E9EFF;
+  --rv-tb-bg: #212121;
+  --rv-tb-border: #3F3F3F;
+  --rv-hidden-bg: #181818;
+  --rv-hidden-line: #3F3F3F;
+  --rv-link: #3EA6FF;
   --rv-shadow: 0 12px 32px rgba(0, 0, 0, .55);
   --rv-high-bg: #16321F; --rv-high-fg: #3DD68C;
   --rv-mid-bg: #3D270E;  --rv-mid-fg: #F5A524;

@@ -8,6 +8,9 @@ html.rv-noads aside[class*="HHC-Banner-"],
 html.rv-noads [class*="banner-place-wrapper"],
 html.rv-noads .vacancy-adaptive-big-banner-wrapper,
 html.rv-noads .vacancy-adaptive-banners-small-banners-wrapper,
+/* Встраиваемые модули hh с баннерами (например, «Курсы по профессии» — careerSearchBanner) */
+html.rv-noads [class*="HH-ContainerForMicroFrontend-"][class*="Banner"],
+html.rv-noads [data-qa^="cp-entrypoint"],
 /* Блоки, которые noads.js нашёл по содержимому (курсы с промокодами и т. п.) */
 html.rv-noads [data-rv-ad] {
   display: none !important;
